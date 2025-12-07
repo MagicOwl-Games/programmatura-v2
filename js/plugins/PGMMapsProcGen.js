@@ -244,6 +244,8 @@
     // TODO: Put the player in the farthest position from the door.
     const firstRoom = rooms[0];
     let exitRoom = rooms[rooms.length - 1] || null; // initial value of the exit room (the farthest from the first).
+    $gameMap._procGenExitX = null;
+    $gameMap._procGenExitY = null;
 
     if (firstRoom && rooms.length > 1) {
       let bestDistance = -1; // initial value for the best distance. It makes sure any distance is better.
@@ -265,6 +267,9 @@
 
     if (exitRoom && doorId) {
       setTile(0, exitRoom.centerX, exitRoom.centerY, doorId);
+      // setTile(0, 2, 0, wallId); // Clear the door tile to avoid having a door in the tileset.
+      $gameMap._proGenExitX = exitRoom.centerX;
+      $gameMap._procGenExitY = exitRoom.centerY;
     }
 
     // TODO: Place random enemies.
@@ -272,6 +277,27 @@
     // Update map
     refreshMap();//
     console.log('[PGMMapsProcGen] Map generated successfully.');
+  }
+
+  // Transfer to the next floor.
+  function markNextFloorAndTransfer() {
+    if (!$gameMap) return;
+    if ($gameMap._procGenNextFloor) return;
+    $gameMap._procGenNextFloor = true;
+
+    // 'reserveTransfer' using the same mapId so the map has a safe reload.
+    $gamePlayer.reserveTransfer($gameMap.mapId(), $gamePlayer.x, $gamePlayer.y, $gamePlayer.direction(), 0);
+  }
+
+  // Detects when the player reaches the exit.
+  const _Scene_Map_onMapLoaded = Scene_Map.prototype.onMapLoaded;
+  Scene_Map.prototype.onMapLoaded = function() {
+    _Scene_Map_onMapLoaded.call(this);
+
+    if ($gameMap && $gameMap._procGenNextFloor) {
+      generateDungeon();
+      $gameMap._procGenNextFloor = false;
+    }
   }
 
   const _pluginCommand = Game_Interpreter.prototype.pluginCommand;
