@@ -21,6 +21,7 @@
   'use strict';
 
   const PLUGIN_NAME = 'PGMMapsProcGen';
+  const params = PluginManager.parameters(PLUGIN_NAME); // not used for now
 
   // Basic internal setup
   const MIN_ROOM_SIZE = 5;
@@ -167,13 +168,6 @@
     const mapArea = mapWidth * mapHeight;
     const dynamicTargetRooms = clamp(Math.floor(mapArea / 100), 2, 6);
 
-    console.log({
-      mapWidth,
-      mapHeight,
-      mapArea,
-      dynamicTargetRooms,
-    });
-
     // Fill the whole map with walls.
     // NOTE: I tried with a 'while' loop, but it didn't work as expected.
     // I don't know why, but it works fine with 'for' loops.
@@ -242,6 +236,10 @@
 
     // Place the player in the first room created.
     // TODO: Put the player in the farthest position from the door.
+    // FIXME: Currently, the exit is placed in the 'farthest' room from the first room, but in this case
+    //it should be the last room created. The constraint here is that the the first and the last rooms
+    //should NOT be connected directly by a corridor, forcing the player to go through all the rooms before
+    //reaching the exit.
     const firstRoom = rooms[0];
     let exitRoom = rooms[rooms.length - 1] || null; // initial value of the exit room (the farthest from the first).
     $gameMap._procGenExitX = null;
@@ -267,11 +265,10 @@
 
     if (exitRoom && doorId) {
       setTile(0, exitRoom.centerX, exitRoom.centerY, doorId);
-      // setTile(0, 2, 0, wallId); // Clear the door tile to avoid having a door in the tileset.
-      $gameMap._proGenExitX = exitRoom.centerX;
+      $gameMap._procGenExitX = exitRoom.centerX;
       $gameMap._procGenExitY = exitRoom.centerY;
+      
     }
-
     // TODO: Place random enemies.
 
     // Update map
@@ -290,6 +287,22 @@
   }
 
   // Detects when the player reaches the exit.
+  const _Scene_Map_update = Scene_Map.prototype.update;
+  Scene_Map.prototype.update = function() {
+    _Scene_Map_update.call(this);
+
+    if (!$gameMap) return;
+    const exitX = $gameMap._procGenExitX;
+    const exitY = $gameMap._procGenExitY;
+
+    if (exitX !== null && exitY !== null) {
+      if ($gamePlayer.x === exitX && $gamePlayer.y === exitY && !$gameMap._procGenNextFloor) {
+        markNextFloorAndTransfer();
+      }
+    }
+  }
+
+  // Generate the new floor if the flag is set.
   const _Scene_Map_onMapLoaded = Scene_Map.prototype.onMapLoaded;
   Scene_Map.prototype.onMapLoaded = function() {
     _Scene_Map_onMapLoaded.call(this);
